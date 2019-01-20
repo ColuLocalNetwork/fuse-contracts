@@ -2,8 +2,8 @@ pragma solidity ^0.5.0;
 
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20Detailed.sol";
-import "openzeppelin-solidity/contracts/drafts/ERC1046/TokenMetadata.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "./TokenMetadata.sol";
 
 /**
  * @title BasicToken
@@ -12,14 +12,21 @@ import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
  * `ERC20` functions.
  */
 contract BasicToken is ERC20, ERC20Detailed, ERC20WithMetadata, Ownable {
-    uint8 public constant DECIMALS = 18;
+
+    event TokenURIChanged(string tokenURI);
     /**
      * @dev Constructor that gives msg.sender all of existing tokens,
-     * and making him the owner of the token.
+     * and making him the owner of the token. The decimals are hard-coded to 18.
      */
     constructor (string memory name, string memory symbol, uint256 initialSupply, string memory tokenURI) public
-       ERC20Detailed(name, symbol, DECIMALS)
+       ERC20Detailed(name, symbol, 18)
        ERC20WithMetadata(tokenURI) {
         _mint(msg.sender, initialSupply);
+    }
+    /// @dev Sets the tokenURI field, can be called by the owner only
+    /// @param tokenURI string the URI may point to a JSON file that conforms to the "Metadata JSON Schema".
+    function setTokenURI(string memory tokenURI) public onlyOwner {
+      _tokenURI = tokenURI;
+      emit TokenURIChanged(tokenURI);
     }
 }
