@@ -47,5 +47,32 @@ contract('TokenFactory', (accounts) => {
           assert.equal(await token.balanceOf(owner), 1e6)
       })
     })
+
+    describe('create token validations', () => {
+      it ('cannot create token without a name', async () => {
+        await truffleAssert.fails(
+            factory.createToken('', 'MC', 1e6, 'ipfs://hash'),
+            truffleAssert.ErrorType.REVERT
+        )
+      })
+
+      it ('cannot create token without a symbol', async () => {
+        await truffleAssert.fails(
+            factory.createToken('MacCoin', '', 1e6, 'ipfs://hash'),
+            truffleAssert.ErrorType.REVERT
+        )
+      })
+
+      it ('cannot create token with 0 supply', async () => {
+        await truffleAssert.fails(
+            factory.createToken('MacCoin', 'MC', 0, 'ipfs://hash'),
+            truffleAssert.ErrorType.REVERT
+        )
+      })
+
+      it ('can create token without tokenURI', async () => {
+        await factory.createToken('MacCoin', 'MC', 1e6, '')
+      })
+    })
   })
 })
