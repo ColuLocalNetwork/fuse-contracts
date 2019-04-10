@@ -4,9 +4,11 @@ import './BasicToken.sol';
 import './MintableBurnableToken.sol';
 
 contract TokenFactory {
-  event TokenCreated(address indexed token, address indexed issuer);
+  enum TokenType {Basic, MintableBurnable}
 
-  function createToken(string memory name, string memory symbol, uint256 initialSupply, string memory tokenURI) public
+  event TokenCreated(address indexed token, address indexed issuer, TokenType tokenType);
+
+  function createBasicToken(string memory name, string memory symbol, uint256 initialSupply, string memory tokenURI) public
     returns (address tokenAddress) {
     require(bytes(name).length != 0);
     require(bytes(symbol).length != 0);
@@ -18,7 +20,7 @@ contract TokenFactory {
     token.transferOwnership(msg.sender);
 
     tokenAddress = address(token);
-    emit TokenCreated(tokenAddress, msg.sender);
+    emit TokenCreated(tokenAddress, msg.sender, TokenType.Basic);
   }
 
   function createMintableBurnableToken(string memory name, string memory symbol, uint256 initialSupply, string memory tokenURI) public
@@ -35,6 +37,6 @@ contract TokenFactory {
       token.renounceMinter();
 
       tokenAddress = address(token);
-      emit TokenCreated(tokenAddress, msg.sender);
+      emit TokenCreated(tokenAddress, msg.sender, TokenType.MintableBurnable);
     }
 }

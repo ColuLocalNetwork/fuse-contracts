@@ -6,7 +6,6 @@ const mintableUtils = require('./utils/mintable')
 const TokenFactory = artifacts.require("TokenFactory")
 const BasicToken = artifacts.require('BasicToken')
 const MintableBurnableToken = artifacts.require('MintableBurnableToken')
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 const createTokenWrapper = async (createToken, ...args) => {
   const result = await createToken(...args)
@@ -27,18 +26,24 @@ contract('TokenFactory', (accounts) => {
     factory = await TokenFactory.new()
   })
 
-  describe('token creation', () => {
+  describe('Token creation', () => {
 
-    const factoryFunctions = {
-      createToken: () => factory.createToken,
-      createMintableBurnableToken: () => factory.createMintableBurnableToken
+    const tokenContracts = {
+      basic: {
+        createFunctionWrapper: () => factory.createBasicToken,
+        tokenType: 0
+      },
+      mintableBurnable: {
+        createFunctionWrapper: () => factory.createMintableBurnableToken,
+        tokenType: 1
+      }
     }
-
-    Object.entries(factoryFunctions).forEach(([name, functionCreator]) => {
+    // console.log(Object.entries(tokenContracts))
+    Object.entries(tokenContracts).forEach(([name, tokenProps]) => {
       let createToken
-      describe(`Basic functionality for ${name} token`, () => {
+      describe(`Token creation functionality for ${name}`, () => {
         before(() => {
-          createToken = functionCreator()
+          createToken = tokenProps.createFunctionWrapper()
         })
 
         const createBasicToken = async (...args) => {
@@ -52,7 +57,7 @@ contract('TokenFactory', (accounts) => {
           it('creates token with TokenCreated event', async () => {
             const {result} = await createTokenWrapper(createToken, 'MacCoin', 'MC', 1e6, 'ipfs://hash')
             truffleAssert.eventEmitted(result, 'TokenCreated', (ev) => {
-              return ev.issuer === owner
+              return ev.issuer === owner && ev.tokenType.toNumber() === tokenProps.tokenType
             })
           })
         })
