@@ -1,9 +1,9 @@
-pragma solidity ^0.5.0;
+pragma solidity ^0.5.2;
 
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20Detailed.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
-import "./TokenMetadata.sol";
+import "openzeppelin-solidity/contracts/drafts/ERC1046/ERC20Metadata.sol";
 
 /**
  * @title BasicToken
@@ -11,7 +11,7 @@ import "./TokenMetadata.sol";
  * Note they can later distribute these tokens as they wish using `transfer` and other
  * `ERC20` functions.
  */
-contract BasicToken is ERC20, ERC20Detailed, ERC20WithMetadata, Ownable {
+contract BasicToken is ERC20, ERC20Detailed, ERC20Metadata, Ownable {
 
     event TokenURIChanged(string tokenURI);
     /**
@@ -20,13 +20,13 @@ contract BasicToken is ERC20, ERC20Detailed, ERC20WithMetadata, Ownable {
      */
     constructor (string memory name, string memory symbol, uint256 initialSupply, string memory tokenURI) public
        ERC20Detailed(name, symbol, 18)
-       ERC20WithMetadata(tokenURI) {
+       ERC20Metadata(tokenURI) {
         _mint(msg.sender, initialSupply);
     }
     /// @dev Sets the tokenURI field, can be called by the owner only
     /// @param tokenURI string the URI may point to a JSON file that conforms to the "Metadata JSON Schema".
     function setTokenURI(string memory tokenURI) public onlyOwner {
-      _tokenURI = tokenURI;
+      _setTokenURI(tokenURI);
       emit TokenURIChanged(tokenURI);
     }
 }

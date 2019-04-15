@@ -1,78 +1,113 @@
 const truffleAssert = require('truffle-assertions')
+const basicUtils = require('./utils/basic')
+const burnableUtils = require('./utils/burnable')
+const mintableUtils = require('./utils/mintable')
+
 const TokenFactory = artifacts.require("TokenFactory")
 const BasicToken = artifacts.require('BasicToken')
+const MintableBurnableToken = artifacts.require('MintableBurnableToken')
+
+const createTokenWrapper = async (createToken, ...args) => {
+  const result = await createToken(...args)
+  let tokenAddress
+  truffleAssert.eventEmitted(result, 'TokenCreated', (ev) => {
+    tokenAddress = ev.token
+    return true
+  })
+  return {tokenAddress, result}
+}
 
 contract('TokenFactory', (accounts) => {
   let owner = accounts[0]
   let factory
   let token
 
-  describe('createToken', () => {
-    before(async () => {
-      factory = await TokenFactory.new()
-    })
+  before(async () => {
+    factory = await TokenFactory.new()
+  })
 
-    describe('should create token with correct params', () => {
-      before(async () => {
-        const result = await factory.createToken('MacCoin', 'MC', 1e6, 'ipfs://hash')
-        let tokenAddress
-        truffleAssert.eventEmitted(result, 'TokenCreated', (ev) => {
-          tokenAddress = ev.token
-          return ev.issuer === owner
+  describe('Token creation', () => {
+
+    const tokenContracts = {
+      basic: {
+        createFunctionWrapper: () => factory.createBasicToken,
+        tokenType: 0
+      },
+      mintableBurnable: {
+        createFunctionWrapper: () => factory.createMintableBurnableToken,
+        tokenType: 1
+      }
+    }
+    // console.log(Object.entries(tokenContracts))
+    Object.entries(tokenContracts).forEach(([name, tokenProps]) => {
+      let createToken
+      describe(`Token creation functionality for ${name}`, () => {
+        before(() => {
+          createToken = tokenProps.createFunctionWrapper()
         })
-        token = await BasicToken.at(tokenAddress)
-      })
 
-      it('should have correct name', async () => {
-          assert.equal(await token.name(), 'MacCoin')
-      })
+        const createBasicToken = async (...args) => {
+          const {tokenAddress, result} = await createTokenWrapper(createToken, ...args)
+          return await BasicToken.at(tokenAddress)
+        }
 
-      it('should have correct symbol', async () => {
-          assert.equal(await token.symbol(), 'MC')
-      })
+        basicUtils.describeConstruction(createBasicToken, accounts)
 
-      it('should have correct total supply', async () => {
-          assert.equal(await token.totalSupply(), 1e6)
-      })
+        describe('Create token factory', async () => {
+          it('creates token with TokenCreated event', async () => {
+            const {result} = await createTokenWrapper(createToken, 'MacCoin', 'MC', 1e6, 'ipfs://hash')
+            truffleAssert.eventEmitted(result, 'TokenCreated', (ev) => {
+              return ev.issuer === owner && ev.tokenType.toNumber() === tokenProps.tokenType
+            })
+          })
+        })
 
-      it('should have correct tokenURI', async () => {
-          assert.equal(await token.tokenURI(), 'ipfs://hash')
-      })
+        describe('Create token validations', () => {
+          it ('cannot create token without a name', async () => {
+            await truffleAssert.fails(
+                createToken('', 'MC', 1e6, 'ipfs://hash'),
+                truffleAssert.ErrorType.REVERT
+            )
+          })
 
-      it('should have correct owner', async () => {
-          assert.equal(await token.owner(), owner)
-      })
+          it ('cannot create token without a symbol', async () => {
+            await truffleAssert.fails(
+                createToken('MacCoin', '', 1e6, 'ipfs://hash'),
+                truffleAssert.ErrorType.REVERT
+            )
+          })
 
-      it('owner should have all the token supply', async () => {
-          assert.equal(await token.balanceOf(owner), 1e6)
+          it ('cannot create token with 0 supply', async () => {
+            await truffleAssert.fails(
+                createToken('MacCoin', 'MC', 0, 'ipfs://hash'),
+                truffleAssert.ErrorType.REVERT
+            )
+          })
+
+          it ('can create token without tokenURI', async () => {
+            await truffleAssert.passes(
+              createToken('MacCoin', 'MC', 1e6, '')
+            )
+          })
+        })
       })
     })
+  })
 
-    describe('create token validations', () => {
-      it ('cannot create token without a name', async () => {
-        await truffleAssert.fails(
-            factory.createToken('', 'MC', 1e6, 'ipfs://hash'),
-            truffleAssert.ErrorType.REVERT
-        )
-      })
+  const createMintableBurnableToken = async (...args) => {
+    const {tokenAddress} = await createTokenWrapper(
+      factory.createMintableBurnableToken, ...args
+    )
+    return await MintableBurnableToken.at(tokenAddress)
+  }
 
-      it ('cannot create token without a symbol', async () => {
-        await truffleAssert.fails(
-            factory.createToken('MacCoin', '', 1e6, 'ipfs://hash'),
-            truffleAssert.ErrorType.REVERT
-        )
-      })
+  burnableUtils.describeBurnable(createMintableBurnableToken, accounts)
 
-      it ('cannot create token with 0 supply', async () => {
-        await truffleAssert.fails(
-            factory.createToken('MacCoin', 'MC', 0, 'ipfs://hash'),
-            truffleAssert.ErrorType.REVERT
-        )
-      })
+  mintableUtils.describeMintable(createMintableBurnableToken, accounts)
 
-      it ('can create token without tokenURI', async () => {
-        await factory.createToken('MacCoin', 'MC', 1e6, '')
-      })
-    })
+  it('should change the minter to the token owner', async () => {
+    token = await createMintableBurnableToken('MacCoin', 'MC', 1e6, 'ipfs://hash', {from: owner})
+    assert.isOk(await token.isMinter(owner))
+    assert.isNotOk(await token.isMinter(factory.address))
   })
 })
